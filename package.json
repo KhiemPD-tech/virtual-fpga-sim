@@ -1,0 +1,10 @@
+{
+  "name": "virtual-fpga-sim",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "node build.mjs",
+    "test": "node --test tests/*.test.mjs",
+    "test:v1": "node --test tests/engine.test.mjs"
+  }
+}

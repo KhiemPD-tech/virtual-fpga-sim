@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Virtual FPGA Simulator — DE2 / EP2C35</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <header class="topbar" role="banner">
+    <div class="brand">
+      <span class="brand-dot" aria-hidden="true"></span>
+      <h1 data-i18n="app.title">Virtual FPGA Simulator</h1>
+      <span class="platform-badge" id="platform-badge" data-i18n="app.badge">DE2 / EP2C35</span>
+    </div>
+
+    <div class="toolbar" role="toolbar" aria-label="Simulation controls">
+      <label class="control-group">
+        <span class="control-label" data-i18n="toolbar.board">Board:</span>
+        <select id="board-select" class="ctrl-select" aria-label="Target FPGA board"></select>
+      </label>
+
+      <label class="control-group">
+        <span class="control-label" data-i18n="toolbar.preset">Preset:</span>
+        <select id="preset-select" class="ctrl-select" aria-label="Circuit preset"></select>
+      </label>
+
+      <div class="mode-seg" id="mode-switch" role="group" aria-label="Simulation Mode">
+        <button id="btn-mode-board" type="button" class="mode-seg-btn is-active" data-mode="board" data-i18n="mode.board">Board Mode (DE2)</button>
+        <button id="btn-mode-tb" type="button" class="mode-seg-btn" data-mode="testbench" data-i18n="mode.testbench">Testbench Mode (ModelSim)</button>
+      </div>
+
+      <div class="toolbar-sep" aria-hidden="true"></div>
+
+      <button
+        id="btn-compile"
+        type="button"
+        class="btn btn-primary"
+        data-i18n="toolbar.compile"
+        data-i18n-title="toolbar.compileTitle"
+      >Compile &amp; Synthesize</button>
+
+      <div class="toolbar-board-group" id="board-controls">
+        <div class="btn-group">
+          <button
+            id="btn-run"
+            type="button"
+            class="btn btn-run"
+            data-i18n="toolbar.run"
+            data-i18n-title="toolbar.runTitle"
+          >Run</button>
+          <button
+            id="btn-pause"
+            type="button"
+            class="btn"
+            data-i18n="toolbar.pause"
+            data-i18n-title="toolbar.pauseTitle"
+          >Pause</button>
+          <button
+            id="btn-step"
+            type="button"
+            class="btn"
+            data-i18n="toolbar.step"
+            data-i18n-title="toolbar.stepTitle"
+          >Step 1 Clock</button>
+          <button
+            id="btn-reset"
+            type="button"
+            class="btn btn-reset"
+            data-i18n="toolbar.reset"
+            data-i18n-title="toolbar.resetTitle"
+          >Reset Board</button>
+        </div>
+
+        <div class="toolbar-sep" aria-hidden="true"></div>
+
+        <label class="control-group">
+          <span class="control-label" data-i18n="toolbar.clockSpeed">Clock:</span>
+          <select id="clock-speed" class="ctrl-select" aria-label="Clock frequency">
+            <option value="manual" data-i18n="toolbar.speedManual">Manual</option>
+            <option value="0.5" data-i18n="toolbar.speed05Hz">0.5 Hz</option>
+            <option value="1" data-i18n="toolbar.speed1Hz">1 Hz</option>
+            <option value="5" selected data-i18n="toolbar.speed5Hz">5 Hz</option>
+            <option value="20" data-i18n="toolbar.speed20Hz">20 Hz</option>
+            <option value="100" data-i18n="toolbar.speed100Hz">100 Hz</option>
+            <option value="500" data-i18n="toolbar.speed500Hz">500 Hz</option>
+            <option value="2000" data-i18n="toolbar.speed2kHz">2 kHz</option>
+            <option value="10000" data-i18n="toolbar.speed10kHz">10 kHz</option>
+          </select>
+        </label>
+
+        <label class="bounce-toggle" data-i18n-title="toolbar.bounceTitle">
+          <input id="toggle-bounce" type="checkbox" />
+          <span data-i18n="toolbar.bounce">Simulate Bounce</span>
+        </label>
+      </div>
+
+      <div class="toolbar-tb-group hidden" id="tb-controls">
+        <button
+          id="btn-run-tb"
+          type="button"
+          class="btn btn-run"
+          data-i18n="tb.run"
+          data-i18n-title="tb.runTitle"
+        >Run Testbench</button>
+        <label class="control-group">
+          <span class="control-label" data-i18n="tb.maxTime">Max Time (ns):</span>
+          <input id="tb-max-time" type="number" class="ctrl-input-num" value="10000" min="10" max="100000" step="100" aria-label="Max Time (ns)" />
+        </label>
+      </div>
+
+      <div class="toolbar-sep" aria-hidden="true"></div>
+
+      <div class="btn-group">
+        <button
+          id="btn-save-lab"
+          type="button"
+          class="btn"
+          data-i18n="toolbar.saveLab"
+          data-i18n-title="toolbar.saveLabTitle"
+        >Save .lab.json</button>
+        <button
+          id="btn-load-lab"
+          type="button"
+          class="btn"
+          data-i18n="toolbar.loadLab"
+          data-i18n-title="toolbar.loadLabTitle"
+        >Load .lab.json</button>
+        <input id="input-load-lab" type="file" accept=".lab.json,.json" hidden />
+      </div>
+
+      <button
+        id="btn-lang-toggle"
+        type="button"
+        class="btn btn-lang"
+        data-i18n-title="toolbar.langTitle"
+        aria-label="Toggle language EN or VI"
+      >
+        <span data-lang="en">EN</span>
+        <span class="lang-divider">|</span>
+        <span data-lang="vi" class="lang-active">VI</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="workspace">
+    <!-- Left Pane: HDL Code Editor -->
+    <section class="panel editor-panel" id="editor-panel">
+      <div class="panel-header">
+        <div class="panel-title-group">
+          <span data-i18n="editor.title">HDL Editor</span>
+          <span class="file-chip" id="editor-filename">bcd_counter.sv</span>
+          <button
+            id="btn-import-hdl"
+            type="button"
+            class="btn btn-xs"
+            data-i18n="editor.importHdl"
+            data-i18n-title="editor.importHdlTitle"
+          >Import HDL</button>
+          <button
+            id="btn-download-hdl"
+            type="button"
+            class="btn btn-xs"
+            data-i18n="editor.downloadHdl"
+            data-i18n-title="editor.downloadHdlTitle"
+          >Download HDL</button>
+          <input id="input-import-hdl" type="file" multiple accept=".v,.sv,.vh,.svh" hidden />
+        </div>
+        <div class="panel-meta-group">
+          <span class="status-badge status-ready" id="editor-status-badge" data-i18n="editor.statusReady">Ready</span>
+          <span class="meta-mono" id="editor-cursor-pos">Ln 1, Col 1</span>
+        </div>
+      </div>
+      <div class="preset-desc-bar" id="preset-desc-bar">
+        <span id="preset-desc-text"></span>
+        <button id="btn-quick-tb" type="button" class="btn btn-xs btn-run hidden" data-i18n="preset.runPairedTb">Run Testbench →</button>
+      </div>
+      <div id="editor-root" class="editor-mount"></div>
+    </section>
+
+    <!-- Right Workspace: Top DE2 Board + Bottom Tabbed Dock -->
+    <section class="right-workspace" id="right-workspace">
+      <!-- Top-Right Pane: Interactive SVG DE2 FPGA Board -->
+      <div class="panel board-panel" id="board-panel">
+        <div class="panel-header">
+          <div class="panel-title-group">
+            <span id="board-panel-title" data-i18n="board.title">Virtual FPGA Board</span>
+            <span class="hint-text" id="board-shortcut-hint" data-i18n="board.de2.hint">Keys 0-9: toggle SW0-SW9 | KEY[3:0]: Active-Low</span>
+          </div>
+          <div class="panel-meta-group">
+            <span class="meta-mono" id="cycle-counter">Cycle: 0</span>
+          </div>
+        </div>
+        <div id="board-root" class="board-viewport"></div>
+        <div id="tb-summary-bar" class="tb-summary-bar hidden"></div>
+      </div>
+
+      <!-- Bottom Dock: Tabbed Logic Analyzer / Synthesis Report / Compiler Console -->
+      <div class="panel dock-panel" id="bottom-dock">
+        <div class="dock-tabs" role="tablist">
+          <button
+            type="button"
+            class="dock-tab active"
+            role="tab"
+            aria-selected="true"
+            data-tab="waveform"
+            data-i18n="tab.waveform"
+          >Logic Analyzer (Waveform)</button>
+          <button
+            type="button"
+            class="dock-tab"
+            role="tab"
+            aria-selected="false"
+            data-tab="peripherals"
+          >
+            <span data-i18n="tab.peripherals">Expansion Peripherals</span>
+            <span class="tab-counter hidden" id="periph-count-badge">0</span>
+          </button>
+          <button
+            type="button"
+            class="dock-tab"
+            role="tab"
+            aria-selected="false"
+            data-tab="synthesis"
+          >
+            <span data-i18n="tab.synthesis">Synthesis Report</span>
+            <span class="tab-counter hidden" id="synth-drc-badge">0</span>
+          </button>
+          <button
+            type="button"
+            class="dock-tab"
+            role="tab"
+            aria-selected="false"
+            data-tab="console"
+          >
+            <span data-i18n="tab.console">Compiler Console</span>
+            <span class="tab-counter hidden" id="console-err-badge">0</span>
+          </button>
+        </div>
+
+        <div class="dock-body">
+          <!-- Tab 1: Logic Analyzer -->
+          <div class="dock-pane active" id="tab-waveform" role="tabpanel">
+            <div id="waveform-root" class="waveform-mount">
+              <div class="placeholder-note" data-i18n="waveform.placeholder">
+                Logic Analyzer Canvas (1,000-sample Ring Buffer) — Ready for Phase 4 wiring.
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 2: Expansion Peripherals Dock -->
+          <div class="dock-pane" id="tab-peripherals" role="tabpanel">
+            <div id="peripherals-root" class="peripherals-mount"></div>
+          </div>
+
+          <!-- Tab 3: Synthesis Report -->
+          <div class="dock-pane" id="tab-synthesis" role="tabpanel">
+            <div class="synth-grid" id="synth-report-root">
+              <div class="synth-toolbar">
+                <span class="meta-mono" id="synth-module-summary"></span>
+                <button
+                  id="btn-export-fpga"
+                  type="button"
+                  class="btn btn-xs btn-primary"
+                  data-i18n="synth.exportPack"
+                  data-i18n-title="synth.exportPackTitle"
+                >Export FPGA Pack</button>
+              </div>
+              <div class="synth-metrics">
+                <div class="metric-card">
+                  <span class="metric-label" data-i18n="synth.luts">4-Input LUTs</span>
+                  <strong class="metric-val" id="synth-luts-val">0</strong>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label" data-i18n="synth.ffs">Flip-Flops</span>
+                  <strong class="metric-val" id="synth-ffs-val">0</strong>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label" data-i18n="synth.totalLEs">Total Logic Elements</span>
+                  <strong class="metric-val" id="synth-les-val">0</strong>
+                  <span class="util-device" id="synth-dsp-sub">DSP: 0</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label" data-i18n="synth.logicDepthLabel">Critical Path</span>
+                  <strong class="metric-val" id="synth-depth-val">0</strong>
+                  <span class="util-device" id="synth-delay-sub">~0.00 ns</span>
+                </div>
+                <div class="metric-card">
+                  <span class="metric-label" data-i18n="synth.memBitsLabel">Memory Bits</span>
+                  <strong class="metric-val" id="synth-mem-val">0</strong>
+                  <span class="util-device" id="synth-bram-sub">BRAM: 0</span>
+                </div>
+                <div class="metric-card metric-wide">
+                  <div class="util-header">
+                    <span class="metric-label" data-i18n="synth.utilization">Device Utilization</span>
+                    <span class="meta-mono" id="synth-util-text">0 / 33,216 LEs (0.00%)</span>
+                  </div>
+                  <div class="util-track">
+                    <div class="util-fill" id="synth-util-bar" style="width: 0%;"></div>
+                  </div>
+                  <span class="util-device" id="synth-device-name" data-i18n="synth.deviceName">Altera Cyclone II EP2C35</span>
+                </div>
+              </div>
+
+              <div class="synth-box" id="synth-hier-box">
+                <h3 data-i18n="synth.hierarchyTitle">Module Hierarchy Breakdown</h3>
+                <div class="pin-map-wrap">
+                  <table class="pin-table">
+                    <thead>
+                      <tr>
+                        <th data-i18n="synth.hierColModule">Module</th>
+                        <th>LUTs</th>
+                        <th>FFs</th>
+                        <th data-i18n="synth.hierColMem">Mem Bits</th>
+                        <th data-i18n="synth.hierColDepth">Logic Depth</th>
+                      </tr>
+                    </thead>
+                    <tbody id="synth-hier-tbody"></tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div class="synth-details">
+                <div class="synth-box">
+                  <h3 data-i18n="synth.drcTitle">DRC Checks</h3>
+                  <div id="synth-drc-list" class="drc-list">
+                    <div class="drc-empty" data-i18n="synth.noData">
+                      Click "Compile &amp; Synthesize" to generate the resource &amp; DRC report.
+                    </div>
+                  </div>
+                </div>
+                <div class="synth-box">
+                  <h3 data-i18n="synth.pinMapping">Pin Mapping</h3>
+                  <div id="synth-pin-map" class="pin-map-wrap">
+                    <table class="pin-table">
+                      <thead>
+                        <tr>
+                          <th data-i18n="synth.pinColPort">Port</th>
+                          <th data-i18n="synth.pinColDir">Direction</th>
+                          <th data-i18n="synth.pinColWidth">Width</th>
+                          <th data-i18n="synth.pinColPeripheral">Board Peripheral</th>
+                        </tr>
+                      </thead>
+                      <tbody id="synth-pin-tbody"></tbody>
+                    </table>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Tab 3: Compiler Console -->
+          <div class="dock-pane" id="tab-console" role="tabpanel">
+            <div class="console-toolbar">
+              <button
+                id="btn-clear-console"
+                type="button"
+                class="btn btn-xs"
+                data-i18n="console.clear"
+              >Clear</button>
+            </div>
+            <div id="console-log" class="console-log" role="log" aria-live="polite"></div>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <!-- FPGA Pack Export Modal (Phase C: .v + Board Constraint File) -->
+  <div id="export-modal" class="export-modal hidden" role="dialog" aria-modal="true" aria-labelledby="export-modal-title">
+    <div class="export-modal-card">
+      <div class="export-modal-header">
+        <h2 id="export-modal-title" data-i18n="export.modalTitle">Export FPGA Hardware Pack</h2>
+        <button id="btn-export-close" type="button" class="btn btn-xs">×</button>
+      </div>
+      <div class="export-modal-meta" id="export-modal-meta"></div>
+      <div class="export-modal-grid">
+        <div class="export-file-box">
+          <div class="export-file-head">
+            <span class="meta-mono" id="export-hdl-name">top.sv</span>
+            <div class="btn-group">
+              <button id="btn-copy-hdl" type="button" class="btn btn-xs" data-i18n="export.copy">Copy</button>
+              <button id="btn-dl-hdl" type="button" class="btn btn-xs btn-primary" data-i18n="export.download">Download</button>
+            </div>
+          </div>
+          <pre id="export-hdl-pre" class="export-code-pre"></pre>
+        </div>
+        <div class="export-file-box">
+          <div class="export-file-head">
+            <span class="meta-mono" id="export-con-name">top.qsf</span>
+            <div class="btn-group">
+              <button id="btn-copy-con" type="button" class="btn btn-xs" data-i18n="export.copy">Copy</button>
+              <button id="btn-dl-con" type="button" class="btn btn-xs btn-primary" data-i18n="export.download">Download</button>
+            </div>
+          </div>
+          <pre id="export-con-pre" class="export-code-pre"></pre>
+        </div>
+      </div>
+      <div class="export-modal-footer">
+        <span class="periph-meta-line" id="export-modal-status"></span>
+        <button id="btn-dl-both" type="button" class="btn btn-primary" data-i18n="export.downloadBoth">Download Both Files</button>
+      </div>
+    </div>
+  </div>
+
+  <script type="module" src="./main.js"></script>
+</body>
+</html>
