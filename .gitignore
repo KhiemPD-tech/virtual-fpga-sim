@@ -1,4 +1,17 @@
+# Dependencies
+node_modules/
 
-*.pdf
+# Logs
+*.log
+npm-debug.log*
 
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# Editor / IDE directories
+.vscode/
+.idea/
+
+# Course reference PDFs (excluded from repository)
 *.pdf
